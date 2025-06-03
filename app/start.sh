@@ -1,8 +1,11 @@
 #!/bin/bash
 
-start_sh_server
-start_code_server
+py -3.11 -m venv venv
+venv\Scripts\activate
 
-python3 ./ignite.py
+pip install -r requirements.txt
 
-infinite_loop
+
+cd app
+uvicorn main:app --host 0.0.0.0 --port 8888
+streamlit run ui.py
