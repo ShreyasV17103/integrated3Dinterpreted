@@ -1,0 +1,3 @@
+@echo off
+echo Starting AI Creative Partner...
+python ignite.py
