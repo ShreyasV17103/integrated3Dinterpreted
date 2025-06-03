@@ -20,7 +20,6 @@ prompt = st.text_area("Enter your creative prompt:", height=100)
 if st.button("Generate"):
     if prompt:
         with st.spinner("Generating your creation..."):
-            try:
                 # Call the API
                 response = requests.post(
                     "http://localhost:8888/execution",
