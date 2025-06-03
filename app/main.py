@@ -59,14 +59,14 @@ def init_memory_db():
     conn = sqlite3.connect('memory.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS generations
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  timestamp TEXT,
-                  prompt TEXT,
-                  enhanced_prompt TEXT,
-                  image_path TEXT,
-                  model_path TEXT,
-                  image_data BLOB,
-                  model_data BLOB)''')
+                (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                prompt TEXT,
+                enhanced_prompt TEXT,
+                image_path TEXT,
+                model_path TEXT,
+                image_data BLOB,
+                model_data BLOB)''')
     conn.commit()
     conn.close()
 
@@ -77,8 +77,8 @@ def save_to_memory(prompt: str, enhanced_prompt: str, image_path: str, model_pat
     conn = sqlite3.connect('memory.db')
     c = conn.cursor()
     c.execute('''INSERT INTO generations (timestamp, prompt, enhanced_prompt, image_path, model_path, image_data, model_data)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)''',
-              (datetime.now().isoformat(), prompt, enhanced_prompt, image_path, model_path, image_data, model_data))
+                VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (datetime.now().isoformat(), prompt, enhanced_prompt, image_path, model_path, image_data, model_data))
     conn.commit()
     conn.close()
 
