@@ -12,12 +12,12 @@ import base64
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from openfabric_pysdk import Stub, AppModel, ConfigClass, InputClass, OutputClass
+from openfabric_pysdk.context import AppModel, State
+from openfabric_pysdk.stub import Stub
 
 from ontology_dc8f06af066e4a7880a5938933236037.config import ConfigClass
 from ontology_dc8f06af066e4a7880a5938933236037.input import InputClass
 from ontology_dc8f06af066e4a7880a5938933236037.output import OutputClass
-from core.stub import Stub
 from core.llm import llm_client
 
 # Load environment variables
@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="AI Creative Partner")
 
 # Initialize Openfabric Stub
-stub = Stub([
-    os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID"),
-    os.getenv("OPENFABRIC_IMAGE_TO_3D_APP_ID")
-])
+stub = Stub(
+    app_id=os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID"),
+    api_key=os.getenv("OPENFABRIC_API_KEY")
+)
 
 # Configurations for the app
 configurations: Dict[str, ConfigClass] = dict()
@@ -215,34 +215,30 @@ def execute(model: AppModel) -> None:
     user_config: ConfigClass = configurations.get('super-user', None)
     logging.info(f"{configurations}")
 
-    # Initialize the Stub with app IDs
-    app_ids = user_config.app_ids if user_config else []
-    stub = Stub(app_ids)
-
     try:
         # Step 1: Generate image using Text-to-Image app
-        text_to_image_app = "f0997a01-d6d3-a5fe-53d8-561300318557.node3.openfabric.network"
-        image_result = stub.call(text_to_image_app, {'prompt': enhanced_prompt}, 'super-user')
+        text_to_image_app = os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID")
+        image_result = stub.generate_image(prompt=enhanced_prompt)
         
-        if not image_result or 'result' not in image_result:
+        if not image_result or not image_result.image_url:
             raise Exception("Failed to generate image")
         
         # Save the generated image
         image_path = f"memory/output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-        image_data = image_result.get('result')
+        image_data = requests.get(image_result.image_url).content
         with open(image_path, 'wb') as f:
             f.write(image_data)
 
         # Step 2: Convert image to 3D using Image-to-3D app
-        image_to_3d_app = "69543f29-4d41-4afc-7f29-3d51591f11eb.node3.openfabric.network"
-        model_result = stub.call(image_to_3d_app, {'image': image_data}, 'super-user')
+        image_to_3d_app = os.getenv("OPENFABRIC_IMAGE_TO_3D_APP_ID")
+        model_result = stub.generate_3d_model(image_url=image_result.image_url)
         
-        if not model_result or 'result' not in model_result:
+        if not model_result or not model_result.model_url:
             raise Exception("Failed to generate 3D model")
         
         # Save the 3D model
         model_path = f"memory/model_{datetime.now().strftime('%Y%m%d_%H%M%S')}.glb"
-        model_data = model_result.get('result')
+        model_data = requests.get(model_result.model_url).content
         with open(model_path, 'wb') as f:
             f.write(model_data)
 
@@ -288,24 +284,16 @@ async def generate(request: GenerationRequest):
         enhanced_prompt = llm_client.enhance_prompt(request.prompt)
         
         # Generate image using Openfabric
-        image_result = stub.call(
-            os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID"),
-            {"prompt": enhanced_prompt},
-            request.user_id
-        )
+        image_result = stub.generate_image(prompt=enhanced_prompt)
         
         # Convert image to 3D model
-        model_result = stub.call(
-            os.getenv("OPENFABRIC_IMAGE_TO_3D_APP_ID"),
-            {"image": image_result.get("result")},
-            request.user_id
-        )
+        model_result = stub.generate_3d_model(image_url=image_result.image_url)
         
         return GenerationResponse(
             message="Generation successful",
             enhanced_prompt=enhanced_prompt,
-            image_url=image_result.get("url"),
-            model_url=model_result.get("url")
+            image_url=image_result.image_url,
+            model_url=model_result.model_url
         )
         
     except Exception as e:
