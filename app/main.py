@@ -12,7 +12,7 @@ import base64
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from openfabric import Stub, AppModel, ConfigClass, InputClass, OutputClass
+from openfabric_pysdk import Stub, AppModel, ConfigClass, InputClass, OutputClass
 
 from ontology_dc8f06af066e4a7880a5938933236037.config import ConfigClass
 from ontology_dc8f06af066e4a7880a5938933236037.input import InputClass
