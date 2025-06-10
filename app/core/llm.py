@@ -1,17 +1,14 @@
 import os
-from typing import Dict, List, Optional
-from openfabric_pysdk.stub import Stub
-from openfabric_pysdk.context import Config
+import requests
 
 class OpenfabricClient:
     def __init__(self):
         """Initialize the Openfabric client."""
-        self.config = Config(
-            app_id=os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID"),
-            api_key=os.getenv("OPENFABRIC_API_KEY")
-        )
-        self.stub = Stub(self.config)
-        
+        self.text_to_image_app_id = os.getenv("TEXT_TO_IMAGE_APP_ID")
+        self.image_to_3d_app_id = os.getenv("IMAGE_TO_3D_APP_ID")
+        # self.api_key = os.getenv("OPENFABRIC_API_KEY")
+        # self.base_url = "https://api.openfabric.network/v1/apps"
+
     def generate_image(self, prompt: str) -> str:
         """Generate an image from a text prompt.
         
@@ -21,8 +18,14 @@ class OpenfabricClient:
         Returns:
             str: URL of the generated image
         """
-        response = self.stub.generate_image(prompt=prompt)
-        return response.image_url
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        data = {"prompt": prompt}
+        response = requests.post(
+            f"{self.base_url}/{self.text_to_image_app_id}/generate",
+            headers=headers,
+            json=data
+        )
+        return response.json().get("image_url")
     
     def generate_3d_model(self, image_url: str) -> str:
         """Generate a 3D model from an image.
@@ -33,13 +36,14 @@ class OpenfabricClient:
         Returns:
             str: URL of the generated 3D model
         """
-        config = Config(
-            app_id=os.getenv("OPENFABRIC_IMAGE_TO_3D_APP_ID"),
-            api_key=os.getenv("OPENFABRIC_API_KEY")
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        data = {"image_url": image_url}
+        response = requests.post(
+            f"{self.base_url}/{self.image_to_3d_app_id}/generate",
+            headers=headers,
+            json=data
         )
-        stub = Stub(config)
-        response = stub.generate_3d_model(image_url=image_url)
-        return response.model_url
+        return response.json().get("model_url")
 
 # Create a singleton instance
 openfabric_client = OpenfabricClient()

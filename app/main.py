@@ -12,13 +12,12 @@ import base64
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from openfabric_pysdk.context import AppModel, State
-from openfabric_pysdk.stub import Stub
+from core.llm import openfabric_client
 
 from ontology_dc8f06af066e4a7880a5938933236037.config import ConfigClass
 from ontology_dc8f06af066e4a7880a5938933236037.input import InputClass
 from ontology_dc8f06af066e4a7880a5938933236037.output import OutputClass
-from core.llm import llm_client
+from ontology_dc8f06af066e4a7880a5938933236037.model import AppModel
 
 # Load environment variables
 load_dotenv()
@@ -30,22 +29,17 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app
 app = FastAPI(title="AI Creative Partner")
 
-# Initialize Openfabric Stub
-stub = Stub(
-    app_id=os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID"),
-    api_key=os.getenv("OPENFABRIC_API_KEY")
-)
-
-# Configurations for the app
-configurations: Dict[str, ConfigClass] = dict()
-
-# Memory storage
-MEMORY_DIR = Path("memory")
-MEMORY_DIR.mkdir(exist_ok=True)
+# Initialize configurations dictionary
+configurations = {}
 
 # Ollama configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "deepseek-coder"  # or "llama2" or any other model you have pulled
+
+print("API KEY:", os.getenv("OPENFABRIC_API_KEY"))
+
+text_to_image_app_id = os.getenv("f0997a01-d6d3-a5fe-53d8-561300318557")
+print("Text-to-Image App ID:", text_to_image_app_id)  # For debugging
 
 def check_ollama_availability() -> bool:
     """Check if Ollama server is running and accessible."""
@@ -217,8 +211,7 @@ def execute(model: AppModel) -> None:
 
     try:
         # Step 1: Generate image using Text-to-Image app
-        text_to_image_app = os.getenv("OPENFABRIC_TEXT_TO_IMAGE_APP_ID")
-        image_result = stub.generate_image(prompt=enhanced_prompt)
+        image_result = openfabric_client.generate_image(enhanced_prompt)
         
         if not image_result or not image_result.image_url:
             raise Exception("Failed to generate image")
@@ -230,8 +223,8 @@ def execute(model: AppModel) -> None:
             f.write(image_data)
 
         # Step 2: Convert image to 3D using Image-to-3D app
-        image_to_3d_app = os.getenv("OPENFABRIC_IMAGE_TO_3D_APP_ID")
-        model_result = stub.generate_3d_model(image_url=image_result.image_url)
+        image_to_3d_app = os.getenv("69543f29-4d41-4afc-7f29-3d51591f11eb")
+        model_result = openfabric_client.generate_3d_model(image_url=image_result.image_url)
         
         if not model_result or not model_result.model_url:
             raise Exception("Failed to generate 3D model")
@@ -277,25 +270,21 @@ class GenerationResponse(BaseModel):
 @app.post("/generate", response_model=GenerationResponse)
 async def generate(request: GenerationRequest):
     try:
-        # Get the LLM client
-        from core.llm import llm_client
+        # Enhance the prompt (if you have an LLM, add here)
+        enhanced_prompt = request.prompt  # Placeholder for LLM enhancement
         
-        # Enhance the prompt using LLM
-        enhanced_prompt = llm_client.enhance_prompt(request.prompt)
+        # Generate image using Openfabric Text-to-Image app
+        image_url = openfabric_client.generate_image(enhanced_prompt)
         
-        # Generate image using Openfabric
-        image_result = stub.generate_image(prompt=enhanced_prompt)
-        
-        # Convert image to 3D model
-        model_result = stub.generate_3d_model(image_url=image_result.image_url)
+        # Generate 3D model using Openfabric Image-to-3D app
+        model_url = openfabric_client.generate_3d_model(image_url)
         
         return GenerationResponse(
             message="Generation successful",
             enhanced_prompt=enhanced_prompt,
-            image_url=image_result.image_url,
-            model_url=model_result.model_url
+            image_url=image_url,
+            model_url=model_url
         )
-        
     except Exception as e:
         logger.error(f"Error during generation: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
